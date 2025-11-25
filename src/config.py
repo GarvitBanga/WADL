@@ -2,6 +2,16 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional, List
 from pathlib import Path
 from dotenv import load_dotenv
+import os
+
+def get_streamlit_secret(key: str, default: str = "") -> str:
+    try:
+        import streamlit as st
+        if hasattr(st, 'secrets') and key in st.secrets:
+            return st.secrets[key]
+    except:
+        pass
+    return os.getenv(key, default)
 
 env_path = Path(__file__).parent.parent / ".env"
 if env_path.exists():
@@ -24,6 +34,7 @@ class Settings(BaseSettings):
     brightdata_dataset_id: Optional[str] = None
     scraperapi_key: Optional[str] = None
     skip_html_fetch: bool = False
+    use_staffspy: bool = False
     
     def get_proxy_list(self) -> List[str]:
         proxies = []
@@ -66,4 +77,36 @@ class Settings(BaseSettings):
     )
 
 settings = Settings()
+
+if not settings.llm_api_key:
+    settings.llm_api_key = get_streamlit_secret("LLM_API_KEY", "")
+if not settings.search_api_key:
+    settings.search_api_key = get_streamlit_secret("SEARCH_API_KEY") or None
+if not settings.brightdata_api_key:
+    settings.brightdata_api_key = get_streamlit_secret("BRIGHTDATA_API_KEY") or None
+if not settings.brightdata_dataset_id:
+    settings.brightdata_dataset_id = get_streamlit_secret("BRIGHTDATA_DATASET_ID") or None
+if not settings.scraperapi_key:
+    settings.scraperapi_key = get_streamlit_secret("SCRAPERAPI_KEY") or None
+if not settings.llm_model or settings.llm_model == "gpt-4o-mini":
+    model = get_streamlit_secret("LLM_MODEL", "gpt-4o-mini")
+    if model:
+        settings.llm_model = model
+if not settings.embedding_model or settings.embedding_model == "text-embedding-3-small":
+    model = get_streamlit_secret("EMBEDDING_MODEL", "text-embedding-3-small")
+    if model:
+        settings.embedding_model = model
+db_url = get_streamlit_secret("DATABASE_URL", "")
+if db_url:
+    settings.database_url = db_url
+elif not settings.database_url or settings.database_url == "sqlite:///./data/wadl_recruiter.db":
+    import tempfile
+    db_path = Path(tempfile.gettempdir()) / "wadl_recruiter.db"
+    settings.database_url = f"sqlite:///{db_path}"
+max_conc = get_streamlit_secret("MAX_CONCURRENT_REQUESTS", "")
+if max_conc:
+    try:
+        settings.max_concurrent_requests = int(max_conc)
+    except:
+        pass
 
