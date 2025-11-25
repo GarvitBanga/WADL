@@ -66,7 +66,7 @@ def main():
 
     target_profiles = st.sidebar.slider(
         "Number of candidates to find", 
-        5, 150, 20, 5,
+        5, 20, 5, 5,
     )
     
     config.settings.skip_html_fetch = False
