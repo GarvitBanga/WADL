@@ -1,0 +1,34 @@
+# Core dependencies
+sqlalchemy>=2.0.0
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
+python-dotenv>=1.0.0
+
+# Async HTTP
+httpx>=0.25.0
+aiohttp>=3.9.0
+
+# HTML parsing
+beautifulsoup4>=4.12.0
+selectolax>=0.3.0
+
+# LLM & Embeddings
+openai>=1.0.0
+
+# Data processing
+pandas>=2.0.0
+openpyxl>=3.1.0  # For Excel reading
+
+# UI
+streamlit>=1.28.0
+
+# Utilities
+tqdm>=4.66.0
+numpy>=1.24.0
+
+# Browser automation (for JS-rendered content)
+playwright>=1.40.0
+
+# LinkedIn scraping library
+staffspy[browser]>=0.2.25
+
