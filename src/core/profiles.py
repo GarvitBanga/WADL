@@ -345,14 +345,42 @@ class ProfileFetcher:
                         max_polls = 20
                         poll_interval = 5
                         
+                        data = None
                         for poll in range(max_polls):
                             await asyncio.sleep(poll_interval)
                             monitor_resp = await client.get(monitor_url, headers=headers)
                             
                             if monitor_resp.status_code == 200:
-                                data = monitor_resp.json()
-                                logger.info(f"Snapshot ready after {(poll + 1) * poll_interval} seconds")
-                                break
+                                try:
+                                    data = monitor_resp.json()
+                                    logger.info(f"Snapshot ready after {(poll + 1) * poll_interval} seconds")
+                                    break
+                                except json.JSONDecodeError as e:
+                                    logger.warning(f"Failed to parse snapshot JSON: {e}, trying alternative parsing")
+                                    text = monitor_resp.text.strip()
+                                    if text:
+                                        try:
+                                            lines = [line.strip() for line in text.split('\n') if line.strip()]
+                                            parsed_objects = []
+                                            for line in lines:
+                                                try:
+                                                    obj = json.loads(line)
+                                                    parsed_objects.append(obj)
+                                                except json.JSONDecodeError:
+                                                    continue
+                                            if parsed_objects:
+                                                data = parsed_objects
+                                                logger.info(f"Parsed {len(parsed_objects)} JSON objects from snapshot (multi-line)")
+                                                break
+                                            else:
+                                                logger.warning("Could not parse any JSON from snapshot response")
+                                                continue
+                                        except Exception as e2:
+                                            logger.warning(f"Alternative snapshot parsing failed: {e2}")
+                                            continue
+                                    else:
+                                        logger.warning("Empty snapshot response text")
+                                        continue
                             elif monitor_resp.status_code == 202:
                                 if (poll + 1) % 3 == 0:
                                     logger.info(f"Still processing... ({poll + 1}/{max_polls} polls)")
@@ -362,14 +390,47 @@ class ProfileFetcher:
                                 for url in urls:
                                     results[url] = None
                                 return results
-                        else:
-                            logger.warning("Snapshot polling timeout")
+                        
+                        if data is None:
+                            logger.warning("Snapshot polling timeout or no data")
                             for url in urls:
                                 results[url] = None
                             return results
                 
                 if resp.status_code == 200:
-                    data = resp.json()
+                    try:
+                        data = resp.json()
+                    except json.JSONDecodeError as e:
+                        logger.warning(f"Failed to parse batch response JSON: {e}, trying alternative parsing")
+                        text = resp.text.strip()
+                        if text:
+                            try:
+                                lines = [line.strip() for line in text.split('\n') if line.strip()]
+                                parsed_objects = []
+                                for line in lines:
+                                    try:
+                                        obj = json.loads(line)
+                                        parsed_objects.append(obj)
+                                    except json.JSONDecodeError:
+                                        continue
+                                if parsed_objects:
+                                    data = parsed_objects
+                                    logger.info(f"Parsed {len(parsed_objects)} JSON objects from multi-line response")
+                                else:
+                                    logger.warning("Could not parse any JSON from response")
+                                    for url in urls:
+                                        results[url] = None
+                                    return results
+                            except Exception as e2:
+                                logger.warning(f"Alternative parsing also failed: {e2}")
+                                for url in urls:
+                                    results[url] = None
+                                return results
+                        else:
+                            logger.warning("Empty response text")
+                            for url in urls:
+                                results[url] = None
+                            return results
                     
                     if isinstance(data, list):
                         for i, profile_data in enumerate(data):
@@ -387,8 +448,39 @@ class ProfileFetcher:
                             else:
                                 if url:
                                     results[url] = None
+                    elif isinstance(data, dict):
+                        if "data" in data and isinstance(data["data"], list):
+                            for i, profile_data in enumerate(data["data"]):
+                                url = urls[i] if i < len(urls) else None
+                                if url and isinstance(profile_data, dict):
+                                    if "warning" in profile_data or "warning_code" in profile_data:
+                                        warning = profile_data.get("warning", "Unknown warning")
+                                        logger.warning(f"Bright Data API warning for {url}: {warning}")
+                                        results[url] = None
+                                    elif "id" in profile_data or "name" in profile_data:
+                                        profile_text = json.dumps(profile_data, indent=2)
+                                        results[url] = profile_text
+                                    else:
+                                        results[url] = None
+                        elif "results" in data and isinstance(data["results"], list):
+                            for i, profile_data in enumerate(data["results"]):
+                                url = urls[i] if i < len(urls) else None
+                                if url and isinstance(profile_data, dict):
+                                    if "warning" in profile_data or "warning_code" in profile_data:
+                                        warning = profile_data.get("warning", "Unknown warning")
+                                        logger.warning(f"Bright Data API warning for {url}: {warning}")
+                                        results[url] = None
+                                    elif "id" in profile_data or "name" in profile_data:
+                                        profile_text = json.dumps(profile_data, indent=2)
+                                        results[url] = profile_text
+                                    else:
+                                        results[url] = None
+                        else:
+                            logger.warning(f"Bright Data API batch returned unexpected dict format: {list(data.keys())}")
+                            for url in urls:
+                                results[url] = None
                     else:
-                        logger.warning(f"Bright Data API batch returned unexpected format")
+                        logger.warning(f"Bright Data API batch returned unexpected format: {type(data)}")
                         for url in urls:
                             results[url] = None
                 else:
