@@ -36,7 +36,4 @@ python -m scripts.import_placements
 streamlit run src/ui/app.py
 ```
 
-## Deployment
-
-See DEPLOY.md for deployment instructions.
 
