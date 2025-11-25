@@ -9,7 +9,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from src.db.session import SessionLocal
+from src.db.session import SessionLocal, init_db
 from src.core.llm_client import LLMClient, EmbeddingClient
 from src.core.search_client import SearchClient
 from src.core.pipeline import run_matching_pipeline_sync
@@ -23,6 +23,8 @@ from src.db.models import (
     Placement,
 )
 import src.config as config
+
+init_db()
 
 SAMPLE_JD = dedent("""
 Director of Residential Services

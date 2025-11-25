@@ -17,7 +17,11 @@ engine = create_engine(
     echo=False
 )
 
-Base.metadata.create_all(bind=engine)
+def init_db():
+    import src.db.models
+    Base.metadata.create_all(bind=engine, checkfirst=True)
+
+init_db()
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
