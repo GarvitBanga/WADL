@@ -351,35 +351,41 @@ class ProfileFetcher:
                             monitor_resp = await client.get(monitor_url, headers=headers)
                             
                             if monitor_resp.status_code == 200:
+                                text = monitor_resp.text.strip()
+                                if not text:
+                                    logger.warning("Empty snapshot response text")
+                                    continue
+                                
                                 try:
-                                    data = monitor_resp.json()
-                                    logger.info(f"Snapshot ready after {(poll + 1) * poll_interval} seconds")
-                                    break
-                                except json.JSONDecodeError as e:
-                                    logger.warning(f"Failed to parse snapshot JSON: {e}, trying alternative parsing")
-                                    text = monitor_resp.text.strip()
-                                    if text:
+                                    lines = [line.strip() for line in text.split('\n') if line.strip()]
+                                    parsed_objects = []
+                                    for line in lines:
                                         try:
-                                            lines = [line.strip() for line in text.split('\n') if line.strip()]
-                                            parsed_objects = []
-                                            for line in lines:
-                                                try:
-                                                    obj = json.loads(line)
-                                                    parsed_objects.append(obj)
-                                                except json.JSONDecodeError:
-                                                    continue
-                                            if parsed_objects:
-                                                data = parsed_objects
-                                                logger.info(f"Parsed {len(parsed_objects)} JSON objects from snapshot (multi-line)")
-                                                break
-                                            else:
-                                                logger.warning("Could not parse any JSON from snapshot response")
-                                                continue
-                                        except Exception as e2:
-                                            logger.warning(f"Alternative snapshot parsing failed: {e2}")
+                                            obj = json.loads(line)
+                                            parsed_objects.append(obj)
+                                        except json.JSONDecodeError:
                                             continue
+                                    
+                                    if parsed_objects:
+                                        data = parsed_objects
+                                        logger.info(f"Snapshot ready after {(poll + 1) * poll_interval} seconds: parsed {len(parsed_objects)} JSON objects")
+                                        break
                                     else:
-                                        logger.warning("Empty snapshot response text")
+                                        try:
+                                            data = json.loads(text)
+                                            logger.info(f"Snapshot ready after {(poll + 1) * poll_interval} seconds: single JSON object")
+                                            break
+                                        except json.JSONDecodeError:
+                                            logger.warning("Could not parse snapshot response as JSON")
+                                            continue
+                                except Exception as e:
+                                    logger.warning(f"Snapshot parsing error: {e}, trying single JSON parse")
+                                    try:
+                                        data = json.loads(text)
+                                        logger.info(f"Snapshot ready after {(poll + 1) * poll_interval} seconds: single JSON object (fallback)")
+                                        break
+                                    except json.JSONDecodeError:
+                                        logger.warning("Could not parse snapshot response")
                                         continue
                             elif monitor_resp.status_code == 202:
                                 if (poll + 1) % 3 == 0:
