@@ -206,7 +206,8 @@ class SourcingAgent:
             if needed <= 0:
                 break
 
-            batch = new_results[:needed * 2] if needed * 2 < len(new_results) else new_results
+            batch_size = min(needed + 1, len(new_results))
+            batch = new_results[:batch_size]
             self.logger.log(
                 "Scout",
                 "FetchBatch",

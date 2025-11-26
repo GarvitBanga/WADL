@@ -396,8 +396,19 @@ class ProfileFetcher:
                             for url in urls:
                                 results[url] = None
                             return results
+                        
+                        if not isinstance(data, list):
+                            if isinstance(data, dict) and "data" in data:
+                                data = data["data"]
+                            elif isinstance(data, dict) and "results" in data:
+                                data = data["results"]
+                            else:
+                                logger.warning(f"Snapshot data is not a list: {type(data)}")
+                                for url in urls:
+                                    results[url] = None
+                                return results
                 
-                if resp.status_code == 200:
+                if resp.status_code == 200 and data is None:
                     try:
                         data = resp.json()
                     except json.JSONDecodeError as e:
@@ -431,6 +442,23 @@ class ProfileFetcher:
                             for url in urls:
                                 results[url] = None
                             return results
+                
+                if data is None:
+                    logger.warning("No data available after parsing")
+                    for url in urls:
+                        results[url] = None
+                    return results
+                
+                if not isinstance(data, list):
+                    if isinstance(data, dict) and "data" in data:
+                        data = data["data"]
+                    elif isinstance(data, dict) and "results" in data:
+                        data = data["results"]
+                    else:
+                        logger.warning(f"Data is not a list after parsing: {type(data)}")
+                        for url in urls:
+                            results[url] = None
+                        return results
                     
                     if isinstance(data, list):
                         for i, profile_data in enumerate(data):
